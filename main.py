@@ -1,4 +1,6 @@
-# A 2048 game clone
+# Project:    2048 Clone
+# Author:     Marian Minar
+# Date:       June 14, 2023
 
 import pygame
 import sys
