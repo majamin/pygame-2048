@@ -167,28 +167,32 @@ def shift_left(board):
 
 
 # shift the board in any direction, but transforming it
-# in the appropriate way first
-def shift_board(board, direction):
+# in the appropriate way first and then transforming it back
+def shift_board(board, direction, spawn=True):
     success = False
 
     # Transform the board
     if direction == LEFT:
         board, success = shift_left(board)
-        board, _ = spawn_on_right(board)
+        if spawn:
+            board, _ = spawn_on_right(board)
     elif direction == RIGHT:
         board = mirror_board(board, RIGHT)
         board, success = shift_left(board)
-        board, _ = spawn_on_right(board)
+        if spawn:
+            board, _ = spawn_on_right(board)
         board = mirror_board(board, LEFT)
     elif direction == UP:
         board = rotate_board(board, UP)
         board, success = shift_left(board)
-        board, _ = spawn_on_right(board)
+        if spawn:
+            board, _ = spawn_on_right(board)
         board = rotate_board(board, DOWN)
     elif direction == DOWN:
         board = rotate_board(board, DOWN)
         board, success = shift_left(board)
-        board, _ = spawn_on_right(board)
+        if spawn:
+            board, _ = spawn_on_right(board)
         board = rotate_board(board, UP)
 
     return (board, success)
@@ -214,41 +218,74 @@ def spawn_on_right(board):
     return (board, success)
 
 
-# Set up a test game board with random (lower) values
-# random_board = [
-#     [random.choice([0, 0, 0, 2, 4, 8]) for _ in range(GRID_SIZE)]
-#     for _ in range(GRID_SIZE)
-# ]
+# a function that returns a random starting board
+# the starting board should have at least 2 tiles
+def random_board():
+    board = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
+    for i in range(GRID_SIZE):
+        for j in range(GRID_SIZE):
+            if random.random() < 0.15:
+                board[i][j] = 2
+    # check to see if the board is empty
+    if sum([sum(row) for row in board]) == 0:
+        return random_board()
+    else:
+        return board
 
-# Test board
-board = [
-    [0, 0, 0, 2],
-    [0, 4, 0, 2],
-    [0, 0, 8, 0],
-    [0, 0, 0, 2],
-]
 
 # Main game loop
-while running:
-    for event in pygame.event.get():
-        if event.type == QUIT:
-            pygame.quit()
-            sys.exit()
-        # if the left key is pressed, shift the board left
-        if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
-                board, _ = shift_board(board, KEY_TO_DIRECTION[event.key])
-            if event.key == pygame.K_LEFTBRACKET:
-                board = rotate_board(board, UP)
-            if event.key == pygame.K_RIGHTBRACKET:
-                board = rotate_board(board, DOWN)
+def main(board=random_board()):
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+                sys.exit()
+            # if the left key is pressed, shift the board left
+            if event.type == pygame.KEYDOWN:
+                if event.key in (
+                    pygame.K_LEFT,
+                    pygame.K_RIGHT,
+                    pygame.K_UP,
+                    pygame.K_DOWN,
+                ):
+                    board, _ = shift_board(board, KEY_TO_DIRECTION[event.key])
 
-    # Draw the background
-    window_surface.fill(BACKGROUND_COLOR)
+        # Draw the background
+        window_surface.fill(BACKGROUND_COLOR)
 
-    # Draw the board
-    draw_board(window_surface, board)
+        # Draw the board
+        draw_board(window_surface, board)
 
-    # Draw the window onto the screen
-    pygame.display.update()
-    clock.tick(FPS)
+        # Draw the window onto the screen
+        pygame.display.update()
+        clock.tick(FPS)
+
+
+if __name__ == "__main__":
+    main()
+
+# NOTE: not yet implemented
+# Create some tests
+# test_board = [
+#     [0, 0, 0, 2],
+#     [0, 4, 0, 2],
+#     [0, 0, 8, 0],
+#     [0, 0, 0, 2],
+# ]
+# assert shift_board(test_board, LEFT, False) == (
+#     [[2, 0, 0, 0], [4, 2, 0, 0], [8, 0, 0, 0], [2, 0, 0, 0]],
+#     True,
+# )
+# assert shift_board(test_board, RIGHT, False) == (
+#     [[0, 0, 0, 2], [0, 0, 4, 2], [0, 0, 0, 8], [0, 0, 0, 2]],
+#     True,
+# )
+# assert shift_board(test_board, UP, False) == (
+#     [[0, 4, 8, 2], [0, 0, 8, 0], [0, 0, 0, 2], [0, 0, 0, 0]],
+#     True,
+# )
+# assert shift_board(test_board, DOWN, False) == (
+#     [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 2], [0, 4, 8, 4]],
+#     True,
+# )
