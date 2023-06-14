@@ -73,6 +73,14 @@ DOWN = "down"
 LEFT = "left"
 RIGHT = "right"
 
+# pygame key events and directions mapping
+KEY_TO_DIRECTION = {
+    pygame.K_UP: UP,
+    pygame.K_DOWN: DOWN,
+    pygame.K_LEFT: LEFT,
+    pygame.K_RIGHT: RIGHT,
+}
+
 # Initialize pygame
 running = True
 pygame.init()
@@ -85,6 +93,7 @@ clock = pygame.time.Clock()
 
 # Set up the window title
 pygame.display.set_caption("2048")
+
 
 def draw_cell(window_surface, i, j, cell_color, cell_text):
     # Calculate the cell's position
@@ -109,9 +118,23 @@ def draw_board(window_surface, board):
             draw_cell(window_surface, i, j, CELL_COLOR, TEXT[board[i][j]])
 
 
-# Shift the board to the left.
-# All tiles move as far left as possible.
-# Tiles on the same row and value are merged.
+# function to mirror the board horizontally or vertically
+def mirror_board(board, direction):
+    if direction == LEFT or direction == RIGHT:
+        return [row[::-1] for row in board]
+    elif direction == UP or direction == DOWN:
+        return board[::-1]
+
+
+# function to rotate the board 90 degrees clockwise or counter-clockwise
+def rotate_board(board, direction):
+    if direction == UP:  # counter-clockwise
+        return [list(row) for row in zip(*board)][::-1]
+    elif direction == DOWN:  # clockwise
+        return [list(row) for row in zip(*board[::-1])]
+
+
+# shift the board left (used in shift_board function)
 def shift_left(board):
     success = False
     for i in range(GRID_SIZE):
@@ -143,28 +166,39 @@ def shift_left(board):
     return (board, success)
 
 
-# Shift the board to the right, use the shift_left function
-def shift_right(board):
+# shift the board in any direction, but transforming it
+# in the appropriate way first
+def shift_board(board, direction):
     success = False
-    # mirror the board
-    board = [row[::-1] for row in board]
-    # shift the board left
-    board, success = shift_left(board)
-    # mirror it back
-    board = [row[::-1] for row in board]
+
+    # Transform the board
+    if direction == LEFT:
+        board, success = shift_left(board)
+        board, _ = spawn_on_right(board)
+    elif direction == RIGHT:
+        board = mirror_board(board, RIGHT)
+        board, success = shift_left(board)
+        board, _ = spawn_on_right(board)
+        board = mirror_board(board, LEFT)
+    elif direction == UP:
+        board = rotate_board(board, UP)
+        board, success = shift_left(board)
+        board, _ = spawn_on_right(board)
+        board = rotate_board(board, DOWN)
+    elif direction == DOWN:
+        board = rotate_board(board, DOWN)
+        board, success = shift_left(board)
+        board, _ = spawn_on_right(board)
+        board = rotate_board(board, UP)
+
     return (board, success)
+
 
 # function to spawn a new tile after a horizontal shift
 # Spawn a new tile in the corresponding column, in a random row.
 # The tile's value is randomly 2 or 4.
-def spawn_new(board, direction):
+def spawn_on_right(board):
     success = False
-    mirrored = False
-    # if direction is right, mirror the board
-    if direction == RIGHT:
-        board = [row[::-1] for row in board]
-        mirrored = True
-
     # get the index of a random empty cell in the last column
     empty_cells = []
     for i in range(GRID_SIZE):
@@ -177,78 +211,21 @@ def spawn_new(board, direction):
         board[i][GRID_SIZE - 1] = random.choice([2, 4])
         success = True
 
-    # if direction is right, mirror the board back
-    if mirrored:
-        board = [row[::-1] for row in board]
-
     return (board, success)
 
 
-
-# Shift the board up.
-# All tiles move as far up as possible.
-# Tiles in the same column and value are merged.
-def shift_up(board):
-    for j in range(GRID_SIZE):
-        # Remove all zeros
-        column = [board[i][j] for i in range(GRID_SIZE) if board[i][j] != 0]
-
-        # Add zeros to the end
-        while len(column) < GRID_SIZE:
-            column.append(0)
-
-        # Merge tiles of the same value
-        for i in range(GRID_SIZE - 1):
-            if column[i] == column[i + 1]:
-                column[i] *= 2
-                column[i + 1] = 0
-
-        # Remove all zeros
-        column = [x for x in column if x != 0]
-
-        # Add zeros to the end
-        while len(column) < GRID_SIZE:
-            column.append(0)
-
-        # Update the board
-        for i in range(GRID_SIZE):
-            board[i][j] = column[i]
-
-
-# Shift the board down.
-# All tiles move as far down as possible.
-# Tiles in the same column and value are merged.
-def shift_down(board):
-    for j in range(GRID_SIZE):
-        # Remove all zeros
-        column = [board[i][j] for i in range(GRID_SIZE) if board[i][j] != 0]
-
-        # Add zeros to the beginning
-        while len(column) < GRID_SIZE:
-            column.insert(0, 0)
-
-        # Merge tiles of the same value
-        for i in range(GRID_SIZE - 1, 0, -1):
-            if column[i] == column[i - 1]:
-                column[i] *= 2
-                column[i - 1] = 0
-
-        # Remove all zeros
-        column = [x for x in column if x != 0]
-
-        # Add zeros to the beginning
-        while len(column) < GRID_SIZE:
-            column.insert(0, 0)
-
-        # Update the board
-        for i in range(GRID_SIZE):
-            board[i][j] = column[i]
-
-
 # Set up a test game board with random (lower) values
+# random_board = [
+#     [random.choice([0, 0, 0, 2, 4, 8]) for _ in range(GRID_SIZE)]
+#     for _ in range(GRID_SIZE)
+# ]
+
+# Test board
 board = [
-    [random.choice([0, 0, 0, 2, 4, 8]) for _ in range(GRID_SIZE)]
-    for _ in range(GRID_SIZE)
+    [0, 0, 0, 2],
+    [0, 4, 0, 2],
+    [0, 0, 8, 0],
+    [0, 0, 0, 2],
 ]
 
 # Main game loop
@@ -259,14 +236,12 @@ while running:
             sys.exit()
         # if the left key is pressed, shift the board left
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_LEFT:
-                board, running = shift_left(board)
-                if running:
-                    board, running = spawn_new(board, LEFT)
-            if event.key == pygame.K_RIGHT:
-                board, running = shift_right(board)
-                if running:
-                    board, running = spawn_new(board, RIGHT)
+            if event.key in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
+                board, _ = shift_board(board, KEY_TO_DIRECTION[event.key])
+            if event.key == pygame.K_LEFTBRACKET:
+                board = rotate_board(board, UP)
+            if event.key == pygame.K_RIGHTBRACKET:
+                board = rotate_board(board, DOWN)
 
     # Draw the background
     window_surface.fill(BACKGROUND_COLOR)
